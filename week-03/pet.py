@@ -1,6 +1,7 @@
 """내 캐릭터 데스크톱 펫 (week-03)
 
-지금은 3단계까지: sheet.png 를 네 칸으로 잘라, 화면 오른쪽 아래에 펫 창을 띄운다.
+지금은 4단계까지: sheet.png 를 네 칸으로 잘라, 화면 오른쪽 아래에 펫 창을 띄운다.
+펫은 마우스로 끌어서 옮길 수 있고, 오른쪽 클릭하면 메뉴가 뜬다.
 
     python pet.py           펫 창 띄우기
     python pet.py --check   잘린 그림을 check/ 폴더에 저장 (눈으로 확인용)
@@ -11,7 +12,7 @@ from pathlib import Path
 from PIL import Image
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtWidgets import QApplication, QLabel
+from PySide6.QtWidgets import QApplication, QLabel, QMenu
 
 HERE = Path(__file__).parent
 SHEET = HERE / "art" / "sheet.png"
@@ -89,6 +90,9 @@ class Pet(QLabel):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setFixedSize(PET_SIZE, PET_SIZE)
 
+        self.press_count = 0     # 오늘 누른 횟수 (화면에만 보이고 저장하지 않음)
+        self.drag_offset = None  # 끄는 중일 때, 마우스와 창 왼쪽 위 사이 거리
+
         scale = self.screen().devicePixelRatio()
         self.pixmaps = [to_pixmap(f, PET_SIZE, scale) for f in frames]
         self.show_frame(IDLE)
@@ -104,6 +108,32 @@ class Pet(QLabel):
             area.right() - PET_SIZE - MARGIN + 1,
             area.bottom() - PET_SIZE - MARGIN + 1,
         )
+
+
+    # --- 끌어서 옮기기 ---
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.drag_offset = event.globalPosition().toPoint() - self.pos()
+
+    def mouseMoveEvent(self, event):
+        if self.drag_offset is not None and event.buttons() & Qt.LeftButton:
+            self.move(event.globalPosition().toPoint() - self.drag_offset)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.drag_offset = None
+
+    # --- 오른쪽 클릭 메뉴 ---
+    def build_menu(self):
+        menu = QMenu(self)
+        count = menu.addAction(f"오늘 누른 횟수: {self.press_count}번")
+        count.setEnabled(False)  # 보여 주기만 하는 줄
+        menu.addSeparator()
+        menu.addAction("끄기", QApplication.quit)
+        return menu
+
+    def contextMenuEvent(self, event):
+        self.build_menu().exec(event.globalPos())
 
 
 def save_check_frames():
